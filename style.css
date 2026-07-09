@@ -52,7 +52,7 @@ body {
 }
 .report-card::before { left: 20%; background: var(--leaf-orange); transform: rotate(-18deg); }
 .report-card::after  { left: 40%; background: var(--leaf-green);  transform: rotate(18deg); }
-.report-card .sy-mark {
+.report-card .sh-mark {
   position: absolute;
   top: 42%; left: 50%;
   transform: translate(-50%, -50%);

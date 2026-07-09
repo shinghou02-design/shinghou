@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>杏和醫院 - 後台管理</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:"Microsoft JhengHei",sans-serif;background:#f5f5f5;color:#333}
+.header{background:#1a365d;color:#fff;padding:16px 24px;display:flex;justify-content:space-between;align-items:center}
+.header h1{font-size:20px}
+.header .badge{background:#48bb78;padding:4px 12px;border-radius:12px;font-size:13px}
+.container{max-width:960px;margin:24px auto;padding:0 16px}
+.card{background:#fff;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.1);margin-bottom:20px;overflow:hidden}
+.card-header{background:#edf2f7;padding:12px 20px;font-weight:bold;font-size:16px;border-bottom:1px solid #e2e8f0}
+.card-body{padding:20px}
+table{width:100%;border-collapse:collapse}
+th,td{padding:10px 12px;text-align:left;border-bottom:1px solid #e2e8f0}
+th{background:#f7fafc;font-weight:600;font-size:14px}
+td input[type="number"]{width:70px;padding:6px 8px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;text-align:center}
+td input[type="text"]{width:100%;padding:6px 8px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px}
+.btn{padding:8px 20px;border:none;border-radius:6px;cursor:pointer;font-size:14px;font-weight:600;transition:.2s}
+.btn-primary{background:#3182ce;color:#fff}.btn-primary:hover{background:#2b6cb0}
+.btn-success{background:#38a169;color:#fff}.btn-success:hover{background:#2f855a}
+.btn-danger{background:#e53e3e;color:#fff}.btn-danger:hover{background:#c53030}
+.btn-sm{padding:5px 12px;font-size:13px}
+.actions{display:flex;gap:8px;margin-top:16px;justify-content:flex-end}
+.note-row{display:flex;gap:8px;margin-bottom:8px;align-items:center}
+.note-row input{flex:1}
+.toast{position:fixed;top:20px;right:20px;padding:12px 24px;border-radius:6px;color:#fff;font-size:14px;z-index:999;display:none}
+.toast.ok{background:#38a169}.toast.err{background:#e53e3e}
+#status{font-size:13px;color:#718096;margin-left:12px}
+.meta-row{display:flex;gap:12px;margin-bottom:12px;align-items:center}
+.meta-row label{min-width:80px;font-weight:600}
+.meta-row input{flex:1;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>杏和醫院 - 後台管理</h1>
+  <div><span class="badge" id="status">連線中...</span></div>
+</div>
+<div class="container">
+
+  <div class="card">
+    <div class="card-header">病床資料</div>
+    <div class="card-body">
+      <table>
+        <thead><tr><th>病房類別</th><th>病床數</th><th>佔床數</th><th>空床數</th><th>佔床率</th><th>健保</th></tr></thead>
+        <tbody id="wardsBody"></tbody>
+      </table>
+      <div class="actions">
+        <button class="btn btn-primary" onclick="saveWards()">儲存病床</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">備註</div>
+    <div class="card-body">
+      <div id="notesBody"></div>
+      <div class="actions">
+        <button class="btn btn-sm btn-success" onclick="addNote()">+ 新增</button>
+        <button class="btn btn-primary" onclick="saveNotes()">儲存備註</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">中繼資料</div>
+    <div class="card-body">
+      <div id="metaBody"></div>
+      <div class="actions">
+        <button class="btn btn-primary" onclick="saveMeta()">儲存中繼</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="config.js"></script>
+<script>
+const {url,anonKey}=window.SUPABASE_CONFIG;
+const REST=url.replace(/\/$/,'')+'/rest/v1';
+const H={apikey:anonKey,Authorization:'Bearer '+anonKey,'Content-Type':'application/json'};
+
+let wards=[],notes=[],meta=[];
+
+function toast(msg,ok=true){const t=document.getElementById('toast');t.textContent=msg;t.className='toast '+(ok?'ok':'err');t.style.display='block';setTimeout(()=>t.style.display='none',2500)}
+
+async function api(path,method='GET',body=null){
+  const opt={method,headers:H};
+  if(body){opt.body=JSON.stringify(body);opt.headers.Prefer='return=representation'}
+  const r=await fetch(`${REST}/${path}`,opt);
+  if(!r.ok)throw new Error(`${r.status} ${await r.text()}`);
+  return r.json();
+}
+
+async function load(){
+  try{
+    [wards,notes,meta]=await Promise.all([
+      api('hospital_wards?select=*&order=sort_order.asc,id.asc'),
+      api('hospital_notes?select=*&order=sort_order.asc,id.asc'),
+      api('hospital_meta?select=*')
+    ]);
+    renderWards();renderNotes();renderMeta();
+    document.getElementById('status').textContent='已連線';
+    document.getElementById('status').style.background='#48bb78';
+  }catch(e){
+    document.getElementById('status').textContent='連線失敗';
+    document.getElementById('status').style.background='#e53e3e';
+    toast('載入失敗: '+e.message,false);
+  }
+}
+
+function renderWards(){
+  const tb=document.getElementById('wardsBody');
+  tb.innerHTML=wards.map((w,i)=>{
+    const empty=w.total_beds-w.occupied_beds;
+    const rate=w.total_beds>0?((w.occupied_beds/w.total_beds)*100).toFixed(1):'0.0';
+    return `<tr>
+      <td>${w.name}</td>
+      <td><input type="number" min="0" value="${w.total_beds}" onchange="wards[${i}].total_beds=+this.value;updateEmpty(${i})"></td>
+      <td><input type="number" min="0" value="${w.occupied_beds}" onchange="wards[${i}].occupied_beds=+this.value;updateEmpty(${i})"></td>
+      <td id="empty_${i}">${empty}</td>
+      <td id="rate_${i}">${rate}%</td>
+      <td><input type="checkbox" ${w.is_insurance?'checked':''} onchange="wards[${i}].is_insurance=this.checked"></td>
+    </tr>`;
+  }).join('');
+}
+
+function updateEmpty(i){
+  const w=wards[i];
+  const empty=w.total_beds-w.occupied_beds;
+  const rate=w.total_beds>0?((w.occupied_beds/w.total_beds)*100).toFixed(1):'0.0';
+  document.getElementById('empty_'+i).textContent=empty;
+  document.getElementById('rate_'+i).textContent=rate+'%';
+}
+
+function renderNotes(){
+  const c=document.getElementById('notesBody');
+  c.innerHTML=notes.map((n,i)=>`<div class="note-row">
+    <input type="text" value="${n.content.replace(/"/g,'&quot;')}" onchange="notes[${i}].content=this.value">
+    <button class="btn btn-sm btn-danger" onclick="removeNote(${i})">刪</button>
+  </div>`).join('');
+}
+
+function addNote(){
+  notes.push({id:null,content:'',sort_order:notes.length});
+  renderNotes();
+}
+
+function removeNote(i){
+  notes.splice(i,1);
+  renderNotes();
+}
+
+function renderMeta(){
+  const c=document.getElementById('metaBody');
+  const m={};meta.forEach(x=>m[x.key]=x.value);
+  c.innerHTML=`
+    <div class="meta-row"><label>報表標題</label><input id="m_title" value="${(m.report_title||'').replace(/"/g,'&quot;')}"></div>
+    <div class="meta-row"><label>更新時間</label><input id="m_updated" value="${m.updated_at||''}" placeholder="ISO format"></div>
+  `;
+}
+
+async function saveWards(){
+  try{
+    for(const w of wards){
+      await api(`hospital_wards?id=eq.${w.id}`,'PATCH',{total_beds:w.total_beds,occupied_beds:w.occupied_beds,is_insurance:w.is_insurance});
+    }
+    toast('病床已儲存');
+  }catch(e){toast('儲存失敗: '+e.message,false)}
+}
+
+async function saveNotes(){
+  try{
+    // delete all then re-insert
+    if(notes.length>0){
+      const ids=notes.filter(n=>n.id).map(n=>n.id);
+      if(ids.length>0) await api(`hospital_notes?id=in.(${ids.join(',')})`,'DELETE');
+      for(let i=0;i<notes.length;i++){
+        if(notes[i].content.trim()) await api('hospital_notes','POST',{content:notes[i].content,sort_order:i});
+      }
+    }
+    notes=await api('hospital_notes?select=*&order=sort_order.asc,id.asc');
+    renderNotes();
+    toast('備註已儲存');
+  }catch(e){toast('儲存失敗: '+e.message,false)}
+}
+
+async function saveMeta(){
+  try{
+    const title=document.getElementById('m_title').value;
+    const updated=document.getElementById('m_updated').value||new Date().toISOString();
+    for(const m of meta){
+      if(m.key==='report_title') await api(`hospital_meta?id=eq.${m.id}`,'PATCH',{value:title});
+      if(m.key==='updated_at') await api(`hospital_meta?id=eq.${m.id}`,'PATCH',{value:updated});
+    }
+    toast('中繼資料已儲存');
+  }catch(e){toast('儲存失敗: '+e.message,false)}
+}
+
+load();
+</script>
+</body>
+</html>

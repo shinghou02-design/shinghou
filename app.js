@@ -52,7 +52,7 @@ async function getReport() {
   const meta = Object.fromEntries(metaRows.map((m) => [m.key, m.value]));
 
   return {
-    title: meta.report_title || '杏永醫院病床利用情形統計日報表',
+    title: (meta.report_title || '杏和醫院病床利用情形統計日報表').replace('杏永', '杏和'),
     categories: cats,
     total,
     insurance,
