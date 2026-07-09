@@ -196,8 +196,8 @@ async function saveMeta(){
     const title=document.getElementById('m_title').value;
     const updated=document.getElementById('m_updated').value||new Date().toISOString();
     for(const m of meta){
-      if(m.key==='report_title') await api(`hospital_meta?id=eq.${m.id}`,'PATCH',{value:title});
-      if(m.key==='updated_at') await api(`hospital_meta?id=eq.${m.id}`,'PATCH',{value:updated});
+      if(m.key==='report_title') await api(`hospital_meta?key=eq.${m.key}`,'PATCH',{value:title});
+      if(m.key==='updated_at') await api(`hospital_meta?key=eq.${m.key}`,'PATCH',{value:updated});
     }
     toast('中繼資料已儲存');
   }catch(e){toast('儲存失敗: '+e.message,false)}
