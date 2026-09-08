@@ -29,9 +29,12 @@
 
     .item { background: #fff; border: 1px solid #ddd; border-radius: 12px; padding: 16px 18px; margin-bottom: 14px; overflow: hidden; }
     .item.overdue { border-color: #e57373; box-shadow: 0 0 0 1px #ffcdd2 inset; }
-    .item-head { display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+    .item-head { display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap; margin-bottom: 0; cursor: pointer; }
     .item-title { font-size: 16px; font-weight: 700; flex: 1; min-width: 160px; }
-    .item-caret { display: none; color: #999; font-size: 13px; align-self: center; }
+    .item-caret { display: inline-block; color: #999; font-size: 13px; align-self: center; transition: transform .15s; }
+    .item-body { display: none; }
+    .item.expanded .item-body { display: block; margin-top: 10px; }
+    .item.expanded .item-caret { transform: rotate(90deg); }
     .photo-thumbs { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
     .photo-thumbs img { width: 64px; height: 64px; object-fit: cover; border-radius: 6px; border: 1px solid #ddd; }
     .upload-hint { font-size: 11.5px; color: #888; margin: -4px 0 8px; }
@@ -73,13 +76,6 @@
       .item-title { font-size: 15px; }
       .topbar { gap: 8px; }
       .action-buttons .btn, .action-buttons input { flex: 1 1 auto; }
-
-      /* 手機板：預設只顯示標題列（大項次），點一下展開詳細內容 */
-      .item-caret { display: inline-block; }
-      .item-head { cursor: pointer; }
-      .item-body { display: none; }
-      .item.expanded .item-body { display: block; margin-top: 10px; }
-      .item.expanded .item-caret { transform: rotate(90deg); }
     }
   </style>
 </head>
