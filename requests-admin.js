@@ -74,12 +74,21 @@ $('pwdSaveBtn').addEventListener('click', async () => {
   if (!p1 || p1.length < 4) return toast('新密碼至少 4 個字元', true);
   if (p1 !== p2) return toast('兩次輸入的新密碼不一致', true);
   try {
-    await api('hospital_admin?key=eq.requests_admin_password', 'PATCH', { value: p1 });
+    const rows = await api('hospital_admin?key=eq.requests_admin_password', 'PATCH', { value: p1 });
+    if (!rows || rows.length === 0) {
+      return toast('更新失敗：資料庫權限不足（請執行 migration_hospital_admin_policy.sql）', true);
+    }
     toast('✓ 密碼已更新，下次登入請用新密碼');
     $('pwdCancelBtn').click();
   } catch (err) {
     toast('更新失敗：' + err.message, true);
   }
+});
+
+// ---------- Logout ----------
+$('logoutBtn').addEventListener('click', () => {
+  try { sessionStorage.removeItem(SESSION_KEY); } catch (e) {}
+  location.reload();
 });
 
 // ---------- List ----------

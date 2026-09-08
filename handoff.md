@@ -49,3 +49,9 @@
 - New file `migration_todo_photos.sql` (NOT yet run by user) — creates the public `todo-photos` Storage bucket (5MB limit, image mime types only) + RLS policies for anon upload/read, and adds `last_update_photos`/`photo_urls` array columns to `todo_items`/`todo_updates`.
 - All of the above (todo.html, todo.js, requests-admin.html, requests-admin.js, request.html, migration_todo_photos.sql) were written this session but **not yet pushed to git** — pending user's next "PUSH".
 - Still open: user has not confirmed rotating the previously-exposed `sb_secret_...` key in Supabase; RLS-disabled Security Advisor findings on `hospital_meta`/`hospital_notes`/`hospital_wards` also still unaddressed (offered, no go-ahead yet).
+
+## Bug fix — password change silently failed (locked user out) — 2026-09-08
+- Root cause: `migration_it_access_requests.sql` only created a SELECT RLS policy on `hospital_admin`, never an UPDATE policy. So the "🔑 變更密碼" PATCH request was silently blocked by RLS (0 rows updated) but still returned HTTP 200, so the JS's `!r.ok` check didn't catch it and the UI showed a false "✓ 密碼已更新" success toast. The DB value never actually changed, so the user got locked out trying to log in with the "new" password that was never saved.
+- Fix: added `migration_hospital_admin_policy.sql` — adds the missing UPDATE policy on `hospital_admin`, and resets the password value back to a known default (`shinghou-it2026`) to unlock the user immediately. User needs to run this in SQL Editor.
+- Also hardened `todo.js` and `requests-admin.js`: the password-change handler now checks that the PATCH actually returned an updated row (`rows.length`), and shows an explicit RLS-permission error instead of a false success if it didn't.
+- Added a "🚪 登出" (logout) button to both todo.html and requests-admin.html topbars — clears the sessionStorage flag and reloads to the gate screen.
