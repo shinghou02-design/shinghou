@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>後台 — 病床資料更新｜杏和醫院</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="admin-wrap" id="app">
+    <h1>杏和醫院 — 住院動態後台</h1>
+    <p class="sub">更新各病房的病床數與佔床數，空床數／佔床率／總計自動計算。儲存後前台立即更新。</p>
+
+    <div class="topbar">
+      <button class="btn btn-primary" id="saveBtn">💾 儲存並更新前台</button>
+      <button class="btn btn-ghost btn-sm" id="addBtn">＋ 新增病房類別</button>
+      <button class="btn btn-ghost btn-sm" id="reloadBtn">↺ 重新載入</button>
+      <a class="link" href="index.html" target="_blank">🔗 開啟前台顯示 ↗</a>
+    </div>
+
+    <table class="admin">
+      <thead>
+        <tr>
+          <th style="min-width:160px;">病房類別</th>
+          <th>病床數</th>
+          <th>佔床數</th>
+          <th>空床數<br /><small>(自動)</small></th>
+          <th>佔床率<br /><small>(自動)</small></th>
+          <th>計入<br />保險病床</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+
+    <div class="notes-editor">
+      <h2>備註（前台「註：」欄）</h2>
+      <div id="notes"></div>
+      <button class="btn btn-ghost btn-sm" id="addNoteBtn">＋ 新增備註</button>
+    </div>
+
+    <div class="summary-box" id="summary"></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="config.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>後台 — 網路資源申請管理｜杏和醫院</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    table.req { width: 100%; border-collapse: collapse; background: #fff; font-size: 13.5px; }
+    table.req th, table.req td { border: 1px solid #ddd; padding: 7px 8px; text-align: center; vertical-align: middle; }
+    table.req thead th { background: #f0f4ec; }
+    table.req td.left { text-align: left; }
+    table.req select, table.req input[type="text"] {
+      padding: 5px 6px; border: 1px solid #ccc; border-radius: 6px; font-size: 13px; font-family: inherit; width: 100%;
+    }
+    .status-badge { padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: 700; display: inline-block; }
+    .status-待處理 { background: #ffe3e3; color: #c62828; }
+    .status-處理中 { background: #fff4d6; color: #a06a00; }
+    .status-已完成 { background: #d9e8b0; color: #2e7d32; }
+    .status-已拒絕 { background: #eee; color: #666; }
+    .filters { display: flex; gap: 10px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+    .filters label { font-size: 13px; font-weight: 700; }
+    .filters select, .filters input { padding: 7px 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 14px; }
+    .handler-box { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+    .empty-msg { text-align: center; color: #888; padding: 30px; }
+  </style>
+</head>
+<body>
+  <div class="gate" id="gate">
+    <h1>後台登入</h1>
+    <p>網路資源申請管理（僅資訊室使用）</p>
+    <input type="password" id="gatePwd" placeholder="請輸入密碼" />
+    <div class="err-msg" id="gateErr"></div>
+    <button class="btn btn-primary" id="gateBtn" style="width:100%;">進入</button>
+  </div>
+
+  <div class="admin-wrap hidden" id="app">
+    <h1>網路資源申請管理</h1>
+    <p class="sub">審核並標註每筆網路／資料夾／USB 開通申請的處理狀態。</p>
+
+    <div class="topbar">
+      <button class="btn btn-primary btn-sm" id="reloadBtn">↺ 重新整理</button>
+      <a class="link" href="request.html" target="_blank">🔗 開啟申請表單 ↗</a>
+    </div>
+
+    <div class="filters">
+      <label>狀態篩選</label>
+      <select id="statusFilter">
+        <option value="">全部</option>
+        <option value="待處理">待處理</option>
+        <option value="處理中">處理中</option>
+        <option value="已完成">已完成</option>
+        <option value="已拒絕">已拒絕</option>
+      </select>
+      <div class="handler-box">
+        <label>處理人</label>
+        <input type="text" id="handlerName" placeholder="你的姓名" style="width:120px;" />
+      </div>
+    </div>
+
+    <div style="overflow-x:auto;">
+      <table class="req">
+        <thead>
+          <tr>
+            <th>提交時間</th>
+            <th>院別</th>
+            <th>姓名</th>
+            <th>單位／職稱</th>
+            <th>分機</th>
+            <th>網路</th>
+            <th>資料夾</th>
+            <th>USB</th>
+            <th>狀態</th>
+            <th>備註</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <div class="empty-msg hidden" id="emptyMsg">目前沒有符合條件的申請</div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="config.js"></script>
+  <script src="requests-admin.js"></script>
+</body>
+</html>

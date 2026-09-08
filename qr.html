@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QR 標籤列印｜杏和醫院</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: "Microsoft JhengHei", "Noto Sans TC", sans-serif; background: #f5f5f5; padding: 20px; }
+    .header { text-align: center; margin-bottom: 24px; }
+    .header h1 { font-size: 24px; margin-bottom: 8px; }
+    .controls { max-width: 800px; margin: 0 auto 24px; background: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+    .controls h2 { font-size: 16px; margin-bottom: 12px; }
+    .form-row { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; align-items: flex-end; }
+    .form-group { display: flex; flex-direction: column; }
+    .form-group label { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+    .form-group input { padding: 8px 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; }
+    .btn { padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; }
+    .btn-primary { background: #2e7d32; color: #fff; }
+    .btn-primary:hover { background: #276b2b; }
+    .btn-danger { background: #c62828; color: #fff; }
+    .btn-danger:hover { background: #a31c1c; }
+    .btn-ghost { background: #eee; color: #333; }
+    .label-list { margin-top: 12px; }
+    .label-item { display: flex; align-items: center; gap: 10px; padding: 8px; background: #f9f9f9; border-radius: 6px; margin-bottom: 6px; }
+    .label-item span { flex: 1; font-size: 14px; }
+    .label-item .loc { color: #666; font-size: 13px; }
+
+    .print-area { display: flex; flex-wrap: wrap; gap: 0; justify-content: flex-start; padding: 10px; }
+    .qr-card {
+      width: 180px;
+      border: 2px dashed #ccc;
+      border-radius: 8px;
+      padding: 16px;
+      text-align: center;
+      page-break-inside: avoid;
+      margin: 8px;
+    }
+    .qr-card canvas { display: block; margin: 0 auto 10px; }
+    .qr-card .label { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+    .qr-card .sublabel { font-size: 13px; color: #666; }
+
+    @media print {
+      body { background: #fff; padding: 0; }
+      .controls, .header { display: none !important; }
+      .print-area { padding: 10mm; }
+      .qr-card { border: 1px solid #ccc; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>QR 標籤列印</h1>
+  </div>
+
+  <div class="controls">
+    <h2>新增標籤</h2>
+    <div class="form-row">
+      <div class="form-group">
+        <label>標籤名稱</label>
+        <input type="text" id="labelInput" placeholder="例：18號門巡邏點" />
+      </div>
+      <div class="form-group">
+        <label>位置</label>
+        <input type="text" id="locInput" placeholder="例：1F" />
+      </div>
+      <div class="form-group">
+        <label>QR 內容（預設同標籤名稱）</label>
+        <input type="text" id="qrInput" placeholder="留空則同標籤名稱" />
+      </div>
+      <button class="btn btn-primary" onclick="addLabel()">加入</button>
+    </div>
+
+    <div class="label-list" id="labelList"></div>
+
+    <div style="margin-top:16px; display:flex; gap:10px;">
+      <button class="btn btn-primary" onclick="printLabels()">🖨 列印標籤</button>
+      <button class="btn btn-danger" onclick="clearAll()">🗑 清空全部</button>
+    </div>
+  </div>
+
+  <div class="print-area" id="printArea"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  <script>
+    let labels = JSON.parse(localStorage.getItem('qr_labels') || '[]');
+
+    function save() { localStorage.setItem('qr_labels', JSON.stringify(labels)); }
+
+    function renderList() {
+      const el = document.getElementById('labelList');
+      el.innerHTML = labels.map((l, i) => `
+        <div class="label-item">
+          <span><strong>${l.label}</strong> <span class="loc">${l.loc}</span></span>
+          <button class="btn btn-danger" style="padding:4px 10px;font-size:12px" onclick="removeLabel(${i})">刪除</button>
+        </div>
+      `).join('');
+    }
+
+    function addLabel() {
+      const label = document.getElementById('labelInput').value.trim();
+      const loc = document.getElementById('locInput').value.trim();
+      const qr = document.getElementById('qrInput').value.trim() || label;
+      if (!label) return alert('請輸入標籤名稱');
+      labels.push({ label, loc, qr });
+      save();
+      renderList();
+      document.getElementById('labelInput').value = '';
+      document.getElementById('locInput').value = '';
+      document.getElementById('qrInput').value = '';
+    }
+
+    function removeLabel(i) {
+      labels.splice(i, 1);
+      save();
+      renderList();
+    }
+
+    function clearAll() {
+      if (!confirm('確定清空全部標籤？')) return;
+      labels = [];
+      save();
+      renderList();
+    }
+
+    async function renderQR() {
+      const area = document.getElementById('printArea');
+      area.innerHTML = '';
+      for (const l of labels) {
+        const card = document.createElement('div');
+        card.className = 'qr-card';
+        const canvas = document.createElement('canvas');
+        card.appendChild(canvas);
+        const lbl = document.createElement('div');
+        lbl.className = 'label';
+        lbl.textContent = l.label;
+        card.appendChild(lbl);
+        if (l.loc) {
+          const sub = document.createElement('div');
+          sub.className = 'sublabel';
+          sub.textContent = l.loc;
+          card.appendChild(sub);
+        }
+        area.appendChild(card);
+        await QRCode.toCanvas(canvas, l.qr, { width: 140, margin: 1 });
+      }
+    }
+
+    function printLabels() {
+      renderQR().then(() => setTimeout(() => window.print(), 300));
+    }
+
+    renderList();
+  </script>
+</body>
+</html>
