@@ -63,4 +63,10 @@
 - `requests-admin.js`: `exportRequestsXlsx()` exports whatever is currently loaded in the table (honors the current 狀態篩選 status filter) — columns: 提交時間/院別/姓名/部門職稱/員編/分機/網路/資料夾/USB/狀態/備註/處理人/處理時間.
 - `todo.js`: `exportTodoXlsx()` exports whatever is currently loaded in the list (honors the 顯示已結案 checkbox) — columns: 標題/負責人/狀態/逾期/目標完成日/建立於/最近更新時間/最近更新內容/說明.
 - Both write the file client-side via `Blob` + a temporary `<a download>` link — no data leaves the browser except the existing Supabase REST calls already being made to load the table.
+
+## Password gate removed — 2026-09-08 (user explicit request: "取消密碼" → "完全移除登入點")
+- Removed the login gate entirely from both todo.html and requests-admin.html — both pages now load their content immediately with no password prompt. Anyone with the link can view/use them (same trust model as the public request.html submission form).
+- Removed from both HTML files: the `.gate` login block, the `.pwd-box` change-password form, and their trigger buttons (🔑 變更密碼, 🚪 登出).
+- Removed from both JS files: `tryLogin()`, `showApp()` gating, the password-change handlers, the logout handler, and the unused `SESSION_KEY` constants. Each file now just calls `load()` directly at the top.
+- `migration_hospital_admin_policy.sql` and the `hospital_admin.requests_admin_password` row are no longer used by these two pages, but were left alone in the DB (harmless, unused) in case password protection is wanted again later.
 - Not yet pushed to git — pending user's next "PUSH".

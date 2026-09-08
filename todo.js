@@ -6,7 +6,6 @@ const HEADERS = { apikey: anonKey, Authorization: `Bearer ${anonKey}`, 'Content-
 
 const $ = (id) => document.getElementById(id);
 const toastEl = $('toast'), listEl = $('list'), emptyMsg = $('emptyMsg');
-const SESSION_KEY = 'shinghou_todo_ok';
 const WEEKLY_DEADLINE_WEEKDAY = 1; // 1 = 星期一（ISO: 1=Mon...7=Sun）
 
 function toast(msg, isErr = false) {
@@ -58,63 +57,8 @@ function isOverdue(item) {
   return ref < currentWeekDeadline();
 }
 
-// ---------- Gate ----------
-try {
-  if (sessionStorage.getItem(SESSION_KEY) === '1') showApp();
-} catch (e) {}
-
-async function tryLogin() {
-  const pwd = $('gatePwd').value;
-  if (!pwd) return;
-  try {
-    const rows = await api('hospital_admin?key=eq.requests_admin_password&select=value');
-    const expected = rows && rows[0] ? rows[0].value : null;
-    if (expected !== null && pwd === expected) {
-      try { sessionStorage.setItem(SESSION_KEY, '1'); } catch (e) {}
-      showApp();
-    } else {
-      $('gateErr').textContent = '密碼錯誤';
-    }
-  } catch (err) {
-    $('gateErr').textContent = '驗證失敗：' + err.message;
-  }
-}
-$('gateBtn').addEventListener('click', tryLogin);
-$('gatePwd').addEventListener('keydown', (e) => { if (e.key === 'Enter') tryLogin(); });
-
-function showApp() {
-  $('gate').classList.add('hidden');
-  $('app').classList.remove('hidden');
-  load();
-}
-
-// ---------- Change password ----------
-$('pwdBtn').addEventListener('click', () => $('pwdBox').classList.remove('hidden'));
-$('pwdCancelBtn').addEventListener('click', () => {
-  $('pwdBox').classList.add('hidden');
-  $('pwd-new').value = ''; $('pwd-confirm').value = '';
-});
-$('pwdSaveBtn').addEventListener('click', async () => {
-  const p1 = $('pwd-new').value, p2 = $('pwd-confirm').value;
-  if (!p1 || p1.length < 4) return toast('新密碼至少 4 個字元', true);
-  if (p1 !== p2) return toast('兩次輸入的新密碼不一致', true);
-  try {
-    const rows = await api('hospital_admin?key=eq.requests_admin_password', 'PATCH', { value: p1 });
-    if (!rows || rows.length === 0) {
-      return toast('更新失敗：資料庫權限不足（請執行 migration_hospital_admin_policy.sql）', true);
-    }
-    toast('✓ 密碼已更新，下次登入請用新密碼');
-    $('pwdCancelBtn').click();
-  } catch (err) {
-    toast('更新失敗：' + err.message, true);
-  }
-});
-
-// ---------- Logout ----------
-$('logoutBtn').addEventListener('click', () => {
-  try { sessionStorage.removeItem(SESSION_KEY); } catch (e) {}
-  location.reload();
-});
+// 已移除登入密碼保護，直接載入
+load();
 
 // ---------- New item form ----------
 $('newBtn').addEventListener('click', () => $('newForm').classList.remove('hidden'));

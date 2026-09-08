@@ -80,15 +80,7 @@
   </style>
 </head>
 <body>
-  <div class="gate" id="gate">
-    <h1>後台登入</h1>
-    <p>代辦事項追蹤（沿用網路申請書後台密碼）</p>
-    <input type="password" id="gatePwd" placeholder="請輸入密碼" />
-    <div class="err-msg" id="gateErr"></div>
-    <button class="btn btn-primary" id="gateBtn" style="width:100%;">進入</button>
-  </div>
-
-  <div class="todo-wrap hidden" id="app">
+  <div class="todo-wrap" id="app">
     <h1>代辦事項追蹤</h1>
     <p class="sub">
       每週一前要為進行中的事項送出一次進度更新；主管看過更新後可以「通過並結案」或「退回」要求繼續追蹤。
@@ -98,23 +90,9 @@
     <div class="topbar">
       <button class="btn btn-primary btn-sm" id="newBtn">＋ 新增代辦事項</button>
       <button class="btn btn-ghost btn-sm" id="reloadBtn">↺ 重新整理</button>
-      <button class="btn btn-ghost btn-sm" id="pwdBtn">🔑 變更密碼</button>
       <button class="btn btn-ghost btn-sm" id="exportBtn">📥 匯出 XLSX</button>
-      <button class="btn btn-ghost btn-sm" id="logoutBtn">🚪 登出</button>
       <div class="spacer"></div>
       <label class="toggle-closed"><input type="checkbox" id="showClosed" /> 顯示已結案</label>
-    </div>
-
-    <div class="pwd-box hidden" id="pwdBox">
-      <h2>變更後台密碼（跟網路申請書後台共用同一組）</h2>
-      <div class="row">
-        <input type="password" id="pwd-new" placeholder="新密碼" />
-        <input type="password" id="pwd-confirm" placeholder="再輸入一次新密碼" />
-      </div>
-      <div class="action-buttons">
-        <button class="btn btn-primary btn-sm" id="pwdSaveBtn">更新密碼</button>
-        <button class="btn btn-ghost btn-sm" id="pwdCancelBtn">取消</button>
-      </div>
     </div>
 
     <div class="new-form hidden" id="newForm">
