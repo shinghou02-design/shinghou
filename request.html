@@ -34,13 +34,29 @@
     .success-box { text-align: center; padding: 20px; }
     .success-box .ok { font-size: 40px; }
     .hint { font-size: 12px; color: #888; margin-top: -8px; margin-bottom: 12px; text-align: center; }
+    .director-row { display: flex; flex-wrap: wrap; align-items: center; gap: 18px; font-size: 14px; }
+    .director-row .sign-line { flex: 1; min-width: 260px; }
 
     @media print {
       body { background: #fff; }
       .no-print { display: none !important; }
       .form-wrap { max-width: 100%; padding: 0; }
-      .card { border: 1px solid #999; box-shadow: none; break-inside: avoid; }
-      @page { size: A4; margin: 14mm; }
+      .form-wrap h1 { font-size: 18px; margin: 0 0 2px; }
+      .form-wrap .sub { font-size: 11px; margin: 0 0 10px; }
+      .card { border: 1px solid #999; box-shadow: none; break-inside: avoid; padding: 10px 14px; margin-bottom: 8px; }
+      .card h2 { font-size: 13px; margin: 0 0 8px; padding-left: 8px; }
+      .row { gap: 8px; margin-bottom: 8px; }
+      .field { gap: 3px; }
+      .field label { font-size: 11px; }
+      .field input[type="text"], .field input[type="date"] { padding: 4px 6px; font-size: 12px; }
+      .choice-row { gap: 12px; }
+      .choice-row label { font-size: 12px; }
+      .item-row { padding: 6px 0; }
+      .item-row .item-name { margin-bottom: 4px; font-size: 12.5px; }
+      .decl-box { padding: 8px 10px; font-size: 10px; line-height: 1.5; }
+      .decl-agree { font-size: 12px; margin-top: 6px; }
+      .director-row { font-size: 12px; gap: 14px; }
+      @page { size: A4; margin: 10mm; }
     }
   </style>
 </head>
@@ -134,6 +150,14 @@
           <input type="checkbox" id="agree_declaration" required />
           本人已詳閱並同意上述聲明
         </label>
+      </div>
+
+      <div class="card">
+        <h2>院長批示</h2>
+        <div class="director-row">
+          <span>□ 核准　　□ 不核准</span>
+          <span class="sign-line">院長簽章：＿＿＿＿＿＿＿＿＿＿　　日期：＿＿＿＿年＿＿月＿＿日</span>
+        </div>
       </div>
 
       <div class="actions no-print">
