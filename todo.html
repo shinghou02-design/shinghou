@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>代辦事項追蹤｜杏和醫院</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .todo-wrap {
+      max-width: 860px; margin: 0 auto; padding: 24px 20px 60px;
+      font-family: "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif;
+    }
+    .todo-wrap h1 { font-size: 22px; margin: 0 0 4px; }
+    .todo-wrap .sub { color: #666; margin: 0 0 20px; font-size: 13.5px; line-height: 1.7; }
+    .topbar { display: flex; gap: 10px; align-items: center; margin-bottom: 18px; flex-wrap: wrap; }
+    .topbar .spacer { flex: 1; }
+    .toggle-closed { font-size: 13px; color: #444; display: flex; align-items: center; gap: 6px; }
+
+    .new-form { background: #fff; border: 1px solid #ddd; border-radius: 12px; padding: 18px 20px; margin-bottom: 18px; }
+    .new-form h2 { font-size: 15px; margin: 0 0 12px; }
+    .new-form .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 10px; }
+    .new-form .field { display: flex; flex-direction: column; gap: 5px; }
+    .new-form .field.full { grid-column: 1 / -1; }
+    .new-form label { font-size: 12.5px; font-weight: 700; color: #333; }
+    .new-form input, .new-form textarea {
+      padding: 8px 10px; border: 1px solid #ccc; border-radius: 7px; font-size: 14px; font-family: inherit;
+    }
+    .new-form textarea { resize: vertical; min-height: 56px; }
+
+    .item { background: #fff; border: 1px solid #ddd; border-radius: 12px; padding: 16px 18px; margin-bottom: 14px; }
+    .item.overdue { border-color: #e57373; box-shadow: 0 0 0 1px #ffcdd2 inset; }
+    .item-head { display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+    .item-title { font-size: 16px; font-weight: 700; flex: 1; min-width: 160px; }
+    .badge { padding: 2px 9px; border-radius: 12px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+    .badge-進行中 { background: #e3edf7; color: #2b5a8c; }
+    .badge-待審核 { background: #fff4d6; color: #a06a00; }
+    .badge-已結案 { background: #d9e8b0; color: #2e7d32; }
+    .badge-overdue { background: #ffdada; color: #c62828; }
+    .badge-overdue::before { content: "🔴 "; }
+    .item-meta { font-size: 12.5px; color: #777; margin-bottom: 8px; }
+    .item-desc { font-size: 13.5px; color: #444; margin-bottom: 10px; white-space: pre-wrap; }
+    .latest-update { background: #f6f8f4; border-radius: 8px; padding: 10px 12px; font-size: 13px; margin-bottom: 10px; }
+    .latest-update .lu-meta { color: #888; font-size: 11.5px; margin-bottom: 4px; }
+    .action-box { border-top: 1px dashed #e0e0e0; padding-top: 10px; margin-top: 6px; }
+    .action-box textarea {
+      width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 7px; font-size: 13.5px;
+      font-family: inherit; resize: vertical; min-height: 50px; margin-bottom: 8px;
+    }
+    .action-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+    .closed-info { font-size: 12.5px; color: #2e7d32; }
+    .history-toggle { font-size: 12px; color: var(--accent); cursor: pointer; margin-top: 8px; display: inline-block; }
+    .history-list { margin-top: 8px; border-top: 1px solid #eee; padding-top: 8px; display: none; }
+    .history-list.show { display: block; }
+    .history-row { font-size: 12px; color: #555; padding: 4px 0; border-bottom: 1px dotted #eee; }
+    .history-row .h-meta { color: #999; }
+    .empty-msg { text-align: center; color: #888; padding: 30px; }
+  </style>
+</head>
+<body>
+  <div class="gate" id="gate">
+    <h1>後台登入</h1>
+    <p>代辦事項追蹤（沿用網路申請書後台密碼）</p>
+    <input type="password" id="gatePwd" placeholder="請輸入密碼" />
+    <div class="err-msg" id="gateErr"></div>
+    <button class="btn btn-primary" id="gateBtn" style="width:100%;">進入</button>
+  </div>
+
+  <div class="todo-wrap hidden" id="app">
+    <h1>代辦事項追蹤</h1>
+    <p class="sub">
+      每週一前要為進行中的事項送出一次進度更新；主管看過更新後可以「通過並結案」或「退回」要求繼續追蹤。
+      逾期沒有送出本週更新的事項，會標示 🔴 逾期。
+    </p>
+
+    <div class="topbar">
+      <button class="btn btn-primary btn-sm" id="newBtn">＋ 新增代辦事項</button>
+      <button class="btn btn-ghost btn-sm" id="reloadBtn">↺ 重新整理</button>
+      <div class="spacer"></div>
+      <label class="toggle-closed"><input type="checkbox" id="showClosed" /> 顯示已結案</label>
+    </div>
+
+    <div class="new-form hidden" id="newForm">
+      <h2>新增代辦事項</h2>
+      <div class="row">
+        <div class="field full">
+          <label>標題 *</label>
+          <input type="text" id="f-title" />
+        </div>
+        <div class="field full">
+          <label>說明</label>
+          <textarea id="f-desc"></textarea>
+        </div>
+        <div class="field">
+          <label>負責人 *</label>
+          <input type="text" id="f-owner" />
+        </div>
+        <div class="field">
+          <label>目標完成日</label>
+          <input type="date" id="f-target" />
+        </div>
+      </div>
+      <div class="action-buttons">
+        <button class="btn btn-primary btn-sm" id="createBtn">建立</button>
+        <button class="btn btn-ghost btn-sm" id="cancelNewBtn">取消</button>
+      </div>
+    </div>
+
+    <div id="list"></div>
+    <div class="empty-msg hidden" id="emptyMsg">目前沒有代辦事項</div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="config.js"></script>
+  <script src="todo.js"></script>
+</body>
+</html>
