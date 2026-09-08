@@ -55,3 +55,12 @@
 - Fix: added `migration_hospital_admin_policy.sql` — adds the missing UPDATE policy on `hospital_admin`, and resets the password value back to a known default (`shinghou-it2026`) to unlock the user immediately. User needs to run this in SQL Editor.
 - Also hardened `todo.js` and `requests-admin.js`: the password-change handler now checks that the PATCH actually returned an updated row (`rows.length`), and shows an explicit RLS-permission error instead of a false success if it didn't.
 - Added a "🚪 登出" (logout) button to both todo.html and requests-admin.html topbars — clears the sessionStorage flag and reloads to the gate screen.
+- All confirmed deployed and working live at commit f93ff3d (verified by fetching the raw file from GitHub) — the user's report of "登出沒有作用" turned out to be a stale browser cache of the old todo.js, not a real bug.
+
+## New feature — XLSX export — 2026-09-08
+- Added "📥 匯出 XLSX" button to both todo.html and requests-admin.html, using ExcelJS (loaded from cdnjs: `exceljs@4.4.0`, client-side, no server needed).
+- Professional formatting on both exports: merged title row (bold, dark-green fill, white text) with export timestamp, bold header row with contrasting fill + borders, sized columns, frozen header rows, zebra striping, autofilter, status-colored cells (matching the on-screen badge colors), landscape page setup with fit-to-width for printing. Overdue todo items get an extra red-highlighted "逾期" column/cell.
+- `requests-admin.js`: `exportRequestsXlsx()` exports whatever is currently loaded in the table (honors the current 狀態篩選 status filter) — columns: 提交時間/院別/姓名/部門職稱/員編/分機/網路/資料夾/USB/狀態/備註/處理人/處理時間.
+- `todo.js`: `exportTodoXlsx()` exports whatever is currently loaded in the list (honors the 顯示已結案 checkbox) — columns: 標題/負責人/狀態/逾期/目標完成日/建立於/最近更新時間/最近更新內容/說明.
+- Both write the file client-side via `Blob` + a temporary `<a download>` link — no data leaves the browser except the existing Supabase REST calls already being made to load the table.
+- Not yet pushed to git — pending user's next "PUSH".

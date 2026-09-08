@@ -148,6 +148,8 @@ $('reloadBtn').addEventListener('click', load);
 $('showClosed').addEventListener('change', load);
 
 // ---------- List ----------
+let currentItems = [];
+
 async function load() {
   try {
     const showClosed = $('showClosed').checked;
@@ -161,11 +163,114 @@ async function load() {
       return new Date(b.created_at) - new Date(a.created_at);
     });
 
+    currentItems = items;
     listEl.innerHTML = items.map(itemHtml).join('');
     emptyMsg.classList.toggle('hidden', items.length > 0);
     bindItemEvents();
   } catch (err) {
     toast('讀取失敗：' + err.message, true);
+  }
+}
+
+// ---------- Export XLSX ----------
+function todayStr() {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}`;
+}
+
+$('exportBtn').addEventListener('click', exportTodoXlsx);
+
+async function exportTodoXlsx() {
+  if (!currentItems.length) return toast('目前沒有資料可以匯出', true);
+  try {
+    const wb = new ExcelJS.Workbook();
+    wb.creator = '杏和醫院集團';
+    wb.created = new Date();
+
+    const cols = [
+      { header: '標題', key: 'title', width: 24 },
+      { header: '負責人', key: 'owner', width: 10 },
+      { header: '狀態', key: 'status', width: 10 },
+      { header: '逾期', key: 'overdue', width: 8 },
+      { header: '目標完成日', key: 'target_date', width: 13 },
+      { header: '建立於', key: 'created_at', width: 13 },
+      { header: '最近更新時間', key: 'last_update_at', width: 17 },
+      { header: '最近更新內容', key: 'last_update_note', width: 34 },
+      { header: '說明', key: 'description', width: 30 },
+    ];
+
+    const ws = wb.addWorksheet('代辦事項追蹤', {
+      views: [{ state: 'frozen', ySplit: 2 }],
+      pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
+    });
+    ws.columns = cols.map((c) => ({ key: c.key, width: c.width }));
+
+    ws.mergeCells(1, 1, 1, cols.length);
+    const titleCell = ws.getCell(1, 1);
+    titleCell.value = `杏和醫院 — 代辦事項追蹤（匯出時間：${fmtDateTime(new Date().toISOString())}）`;
+    titleCell.font = { bold: true, size: 13, color: { argb: 'FFFFFFFF' } };
+    titleCell.alignment = { vertical: 'middle', horizontal: 'left' };
+    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2E7D32' } };
+    ws.getRow(1).height = 26;
+
+    const headerRow = ws.getRow(2);
+    cols.forEach((c, i) => { headerRow.getCell(i + 1).value = c.header; });
+    headerRow.eachCell((cell) => {
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4C7A3D' } };
+      cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+    });
+    headerRow.height = 20;
+
+    const statusColors = { 進行中: 'FFE3EDF7', 待審核: 'FFFFF4D6', 已結案: 'FFD9E8B0' };
+    const statusColIdx = cols.findIndex((c) => c.key === 'status') + 1;
+    const overdueColIdx = cols.findIndex((c) => c.key === 'overdue') + 1;
+
+    currentItems.forEach((item, idx) => {
+      const overdue = isOverdue(item);
+      const row = ws.addRow({
+        title: item.title,
+        owner: item.owner,
+        status: item.status,
+        overdue: overdue ? '🔴 逾期' : '',
+        target_date: fmtDate(item.target_date),
+        created_at: fmtDate(item.created_at),
+        last_update_at: fmtDateTime(item.last_update_at),
+        last_update_note: item.last_update_note || '',
+        description: item.description || '',
+      });
+      row.eachCell((cell) => {
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FFDDDDDD' } }, left: { style: 'thin', color: { argb: 'FFDDDDDD' } },
+          bottom: { style: 'thin', color: { argb: 'FFDDDDDD' } }, right: { style: 'thin', color: { argb: 'FFDDDDDD' } },
+        };
+        cell.alignment = { vertical: 'middle', wrapText: true };
+      });
+      if (idx % 2 === 1) {
+        row.eachCell((cell) => { cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF4F7F1' } }; });
+      }
+      const sc = statusColors[item.status];
+      if (sc) row.getCell(statusColIdx).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: sc } };
+      if (overdue) {
+        row.getCell(overdueColIdx).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFDADA' } };
+        row.getCell(overdueColIdx).font = { color: { argb: 'FFC62828' }, bold: true };
+      }
+    });
+
+    ws.autoFilter = { from: { row: 2, column: 1 }, to: { row: 2, column: cols.length } };
+
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type: 'application/octet-stream' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `代辦事項追蹤_${todayStr()}.xlsx`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+    toast('✓ 已匯出 XLSX');
+  } catch (err) {
+    toast('匯出失敗：' + err.message, true);
   }
 }
 
