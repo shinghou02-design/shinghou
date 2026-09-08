@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>網路暨電腦資源開通申請書｜杏和醫院</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .form-wrap {
+      max-width: 760px; margin: 0 auto; padding: 24px 20px 60px;
+      font-family: "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif;
+    }
+    .form-wrap h1 { font-size: 22px; text-align: center; margin: 0 0 4px; }
+    .form-wrap .sub { text-align: center; color: #666; font-size: 13px; margin: 0 0 22px; }
+    .card { background: #fff; border: 1px solid #ddd; border-radius: 12px; padding: 20px 22px; margin-bottom: 16px; }
+    .card h2 { font-size: 16px; margin: 0 0 14px; border-left: 4px solid var(--accent); padding-left: 10px; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .field.full { grid-column: 1 / -1; }
+    .field label { font-size: 13px; font-weight: 700; color: #333; }
+    .field label .req { color: #c62828; }
+    .field input[type="text"], .field input[type="date"] {
+      padding: 9px 11px; border: 1px solid #ccc; border-radius: 8px; font-size: 15px; font-family: inherit;
+    }
+    .field input:disabled { background: #f5f5f5; color: #222; -webkit-text-fill-color:#222; opacity: 1; }
+    .choice-row { display: flex; gap: 18px; flex-wrap: wrap; align-items: center; }
+    .choice-row label { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 400; }
+    .item-row { border-top: 1px solid #eee; padding: 12px 0; }
+    .item-row:first-child { border-top: none; padding-top: 0; }
+    .item-row .item-name { font-weight: 700; margin-bottom: 8px; }
+    .decl-box { background: #fff8f0; border: 1px solid #f0dcc0; border-radius: 8px; padding: 14px 16px; font-size: 13.5px; line-height: 1.8; color: #444; }
+    .decl-agree { margin-top: 10px; display: flex; align-items: flex-start; gap: 8px; font-size: 14px; font-weight: 700; }
+    .actions { display: flex; gap: 12px; justify-content: center; margin-top: 20px; }
+    .success-box { text-align: center; padding: 20px; }
+    .success-box .ok { font-size: 40px; }
+    .hint { font-size: 12px; color: #888; margin-top: -8px; margin-bottom: 12px; text-align: center; }
+
+    @media print {
+      body { background: #fff; }
+      .no-print { display: none !important; }
+      .form-wrap { max-width: 100%; padding: 0; }
+      .card { border: 1px solid #999; box-shadow: none; break-inside: avoid; }
+      @page { size: A4; margin: 14mm; }
+    }
+  </style>
+</head>
+<body>
+  <div class="form-wrap" id="app">
+    <h1>網路暨電腦資源開通申請書</h1>
+    <p class="sub">杏和醫院集團｜資訊室</p>
+
+    <form id="reqForm">
+      <div class="card">
+        <h2>基本資料</h2>
+        <div class="row">
+          <div class="field full">
+            <label>醫院院別 <span class="req">*</span></label>
+            <input type="text" id="hospital" list="hospitalList" placeholder="請選擇或輸入院別" required />
+            <datalist id="hospitalList">
+              <option value="杏和醫院"></option>
+              <option value="杏永醫院"></option>
+              <option value="杏和護理之家"></option>
+              <option value="診所"></option>
+            </datalist>
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label>申請日期 <span class="req">*</span></label>
+            <input type="date" id="apply_date" required />
+          </div>
+          <div class="field">
+            <label>姓名 <span class="req">*</span></label>
+            <input type="text" id="name" required />
+          </div>
+          <div class="field">
+            <label>部門／單位</label>
+            <input type="text" id="department" />
+          </div>
+          <div class="field">
+            <label>職稱</label>
+            <input type="text" id="title" />
+          </div>
+          <div class="field">
+            <label>員工編號</label>
+            <input type="text" id="employee_id" />
+          </div>
+          <div class="field">
+            <label>分機電話</label>
+            <input type="text" id="extension" />
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>申請項目</h2>
+
+        <div class="item-row">
+          <div class="item-name">1. 對外網路開通</div>
+          <div class="choice-row">
+            <label><input type="radio" name="net_access" value="是" /> 是</label>
+            <label><input type="radio" name="net_access" value="否" /> 否</label>
+          </div>
+        </div>
+
+        <div class="item-row">
+          <div class="item-name">2. 共用資料夾開通</div>
+          <div class="choice-row" style="margin-bottom:10px;">
+            <label><input type="checkbox" id="folder_shinghou" /> 杏和醫院共資夾</label>
+            <label><input type="checkbox" id="folder_shingyong" /> 杏永醫院共資夾</label>
+          </div>
+          <div class="choice-row">
+            <span style="font-size:13px;color:#666;">開通：</span>
+            <label><input type="radio" name="folder_access" value="是" /> 是</label>
+            <label><input type="radio" name="folder_access" value="否" /> 否</label>
+          </div>
+        </div>
+
+        <div class="item-row">
+          <div class="item-name">3. 電腦 USB 開通</div>
+          <div class="choice-row">
+            <label><input type="radio" name="usb_access" value="是" /> 是</label>
+            <label><input type="radio" name="usb_access" value="否" /> 否</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>資訊安全切結聲明</h2>
+        <div class="decl-box">
+          本人申請上述資訊資源開通，同意遵守醫院資訊安全相關規範及使用規定，妥善保管帳號、密碼與所開通之權限，不得轉借他人使用。如有外洩、濫用或違反規定致生損害，願自負相關法律及行政責任。
+        </div>
+        <label class="decl-agree">
+          <input type="checkbox" id="agree_declaration" required />
+          本人已詳閱並同意上述聲明
+        </label>
+      </div>
+
+      <div class="actions no-print">
+        <button type="submit" class="btn btn-primary" id="submitBtn">送出申請</button>
+        <button type="button" class="btn btn-ghost" id="printBlankBtn">🖨 列印空白表單</button>
+      </div>
+    </form>
+
+    <div class="card success-box hidden" id="successBox">
+      <div class="ok">✅</div>
+      <p>申請已送出，資訊室將盡快處理。</p>
+      <div class="actions no-print">
+        <button type="button" class="btn btn-primary" id="printFilledBtn">🖨 列印本次申請</button>
+        <button type="button" class="btn btn-ghost" id="resetBtn">再填一份新的</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="config.js"></script>
+  <script src="request.js"></script>
+</body>
+</html>
