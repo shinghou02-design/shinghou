@@ -37,6 +37,14 @@
     .director-row { display: flex; flex-wrap: wrap; align-items: center; gap: 18px; font-size: 14px; }
     .director-row .sign-line { flex: 1; min-width: 260px; }
 
+    @media (max-width: 600px) {
+      .form-wrap { padding: 16px 12px 40px; }
+      .row { grid-template-columns: 1fr; }
+      .card { padding: 16px 16px; }
+      .actions { flex-direction: column; }
+      .actions .btn { width: 100%; }
+    }
+
     @media print {
       body { background: #fff; }
       .no-print { display: none !important; }

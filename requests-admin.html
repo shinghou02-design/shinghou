@@ -23,6 +23,22 @@
     .filters select, .filters input { padding: 7px 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 14px; }
     .handler-box { margin-left: auto; display: flex; gap: 8px; align-items: center; }
     .empty-msg { text-align: center; color: #888; padding: 30px; }
+
+    .pwd-box { background: #fff; border: 1px solid #ddd; border-radius: 12px; padding: 16px 18px; margin-bottom: 18px; }
+    .pwd-box h2 { font-size: 14px; margin: 0 0 10px; }
+    .pwd-box .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+    .pwd-box input {
+      width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 7px; font-size: 14px; font-family: inherit;
+    }
+
+    @media (max-width: 600px) {
+      .admin-wrap { padding: 16px 12px 40px; }
+      .pwd-box .row { grid-template-columns: 1fr; }
+      table.req { font-size: 12px; }
+      table.req th, table.req td { padding: 5px 6px; }
+      .filters { gap: 8px; }
+      .handler-box { margin-left: 0; }
+    }
   </style>
 </head>
 <body>
@@ -40,7 +56,21 @@
 
     <div class="topbar">
       <button class="btn btn-primary btn-sm" id="reloadBtn">↺ 重新整理</button>
+      <button class="btn btn-ghost btn-sm" id="pwdBtn">🔑 變更密碼</button>
       <a class="link" href="request.html" target="_blank">🔗 開啟申請表單 ↗</a>
+      <a class="link" href="todo.html" target="_blank">🔗 代辦事項追蹤 ↗</a>
+    </div>
+
+    <div class="pwd-box hidden" id="pwdBox">
+      <h2>變更後台密碼（跟代辦事項後台共用同一組）</h2>
+      <div class="row">
+        <input type="password" id="pwd-new" placeholder="新密碼" />
+        <input type="password" id="pwd-confirm" placeholder="再輸入一次新密碼" />
+      </div>
+      <div class="action-buttons" style="display:flex; gap:8px;">
+        <button class="btn btn-primary btn-sm" id="pwdSaveBtn">更新密碼</button>
+        <button class="btn btn-ghost btn-sm" id="pwdCancelBtn">取消</button>
+      </div>
     </div>
 
     <div class="filters">

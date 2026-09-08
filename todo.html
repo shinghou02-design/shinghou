@@ -27,10 +27,14 @@
     }
     .new-form textarea { resize: vertical; min-height: 56px; }
 
-    .item { background: #fff; border: 1px solid #ddd; border-radius: 12px; padding: 16px 18px; margin-bottom: 14px; }
+    .item { background: #fff; border: 1px solid #ddd; border-radius: 12px; padding: 16px 18px; margin-bottom: 14px; overflow: hidden; }
     .item.overdue { border-color: #e57373; box-shadow: 0 0 0 1px #ffcdd2 inset; }
     .item-head { display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
     .item-title { font-size: 16px; font-weight: 700; flex: 1; min-width: 160px; }
+    .item-caret { display: none; color: #999; font-size: 13px; align-self: center; }
+    .photo-thumbs { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+    .photo-thumbs img { width: 64px; height: 64px; object-fit: cover; border-radius: 6px; border: 1px solid #ddd; }
+    .upload-hint { font-size: 11.5px; color: #888; margin: -4px 0 8px; }
     .badge { padding: 2px 9px; border-radius: 12px; font-size: 12px; font-weight: 700; white-space: nowrap; }
     .badge-進行中 { background: #e3edf7; color: #2b5a8c; }
     .badge-待審核 { background: #fff4d6; color: #a06a00; }
@@ -46,6 +50,7 @@
       width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 7px; font-size: 13.5px;
       font-family: inherit; resize: vertical; min-height: 50px; margin-bottom: 8px;
     }
+    .action-box input[type="file"] { width: 100%; max-width: 100%; font-size: 12.5px; margin-bottom: 2px; }
     .action-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
     .closed-info { font-size: 12.5px; color: #2e7d32; }
     .history-toggle { font-size: 12px; color: var(--accent); cursor: pointer; margin-top: 8px; display: inline-block; }
@@ -54,6 +59,28 @@
     .history-row { font-size: 12px; color: #555; padding: 4px 0; border-bottom: 1px dotted #eee; }
     .history-row .h-meta { color: #999; }
     .empty-msg { text-align: center; color: #888; padding: 30px; }
+
+    .pwd-box { background: #fff; border: 1px solid #ddd; border-radius: 12px; padding: 16px 18px; margin-bottom: 18px; }
+    .pwd-box h2 { font-size: 14px; margin: 0 0 10px; }
+    .pwd-box .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+    .pwd-box input {
+      width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 7px; font-size: 14px; font-family: inherit;
+    }
+
+    @media (max-width: 600px) {
+      .todo-wrap { padding: 16px 12px 40px; }
+      .new-form .row, .pwd-box .row { grid-template-columns: 1fr; }
+      .item-title { font-size: 15px; }
+      .topbar { gap: 8px; }
+      .action-buttons .btn, .action-buttons input { flex: 1 1 auto; }
+
+      /* 手機板：預設只顯示標題列（大項次），點一下展開詳細內容 */
+      .item-caret { display: inline-block; }
+      .item-head { cursor: pointer; }
+      .item-body { display: none; }
+      .item.expanded .item-body { display: block; margin-top: 10px; }
+      .item.expanded .item-caret { transform: rotate(90deg); }
+    }
   </style>
 </head>
 <body>
@@ -75,8 +102,21 @@
     <div class="topbar">
       <button class="btn btn-primary btn-sm" id="newBtn">＋ 新增代辦事項</button>
       <button class="btn btn-ghost btn-sm" id="reloadBtn">↺ 重新整理</button>
+      <button class="btn btn-ghost btn-sm" id="pwdBtn">🔑 變更密碼</button>
       <div class="spacer"></div>
       <label class="toggle-closed"><input type="checkbox" id="showClosed" /> 顯示已結案</label>
+    </div>
+
+    <div class="pwd-box hidden" id="pwdBox">
+      <h2>變更後台密碼（跟網路申請書後台共用同一組）</h2>
+      <div class="row">
+        <input type="password" id="pwd-new" placeholder="新密碼" />
+        <input type="password" id="pwd-confirm" placeholder="再輸入一次新密碼" />
+      </div>
+      <div class="action-buttons">
+        <button class="btn btn-primary btn-sm" id="pwdSaveBtn">更新密碼</button>
+        <button class="btn btn-ghost btn-sm" id="pwdCancelBtn">取消</button>
+      </div>
     </div>
 
     <div class="new-form hidden" id="newForm">

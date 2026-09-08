@@ -1,5 +1,7 @@
 const { url, anonKey } = window.SUPABASE_CONFIG;
 const REST = `${url.replace(/\/$/, '')}/rest/v1`;
+const STORAGE_BUCKET = 'todo-photos';
+const STORAGE_BASE = `${url.replace(/\/$/, '')}/storage/v1`;
 const HEADERS = { apikey: anonKey, Authorization: `Bearer ${anonKey}`, 'Content-Type': 'application/json' };
 
 const $ = (id) => document.getElementById(id);
@@ -86,6 +88,25 @@ function showApp() {
   load();
 }
 
+// ---------- Change password ----------
+$('pwdBtn').addEventListener('click', () => $('pwdBox').classList.remove('hidden'));
+$('pwdCancelBtn').addEventListener('click', () => {
+  $('pwdBox').classList.add('hidden');
+  $('pwd-new').value = ''; $('pwd-confirm').value = '';
+});
+$('pwdSaveBtn').addEventListener('click', async () => {
+  const p1 = $('pwd-new').value, p2 = $('pwd-confirm').value;
+  if (!p1 || p1.length < 4) return toast('新密碼至少 4 個字元', true);
+  if (p1 !== p2) return toast('兩次輸入的新密碼不一致', true);
+  try {
+    await api('hospital_admin?key=eq.requests_admin_password', 'PATCH', { value: p1 });
+    toast('✓ 密碼已更新，下次登入請用新密碼');
+    $('pwdCancelBtn').click();
+  } catch (err) {
+    toast('更新失敗：' + err.message, true);
+  }
+});
+
 // ---------- New item form ----------
 $('newBtn').addEventListener('click', () => $('newForm').classList.remove('hidden'));
 $('cancelNewBtn').addEventListener('click', () => {
@@ -139,6 +160,11 @@ async function load() {
   }
 }
 
+function photoThumbsHtml(urls) {
+  if (!urls || !urls.length) return '';
+  return `<div class="photo-thumbs">${urls.map((u) => `<a href="${esc(u)}" target="_blank"><img src="${esc(u)}" alt="照片" /></a>`).join('')}</div>`;
+}
+
 function itemHtml(item) {
   const overdue = isOverdue(item);
   const badge = overdue
@@ -150,6 +176,8 @@ function itemHtml(item) {
     actionHtml = `
       <div class="action-box">
         <textarea class="upd-note" placeholder="填寫本週進度更新…" data-id="${item.id}"></textarea>
+        <input type="file" class="upd-photos" accept="image/*" capture="environment" multiple data-id="${item.id}" />
+        <div class="upload-hint">可拍照或選擇圖片上傳（選填）</div>
         <div class="action-buttons">
           <input type="text" class="upd-author" placeholder="你的姓名" style="max-width:140px; padding:7px 9px; border:1px solid #ccc; border-radius:7px; font-size:13px;" />
           <button class="btn btn-primary btn-sm act-submit-update" data-id="${item.id}">送出本週更新</button>
@@ -178,15 +206,18 @@ function itemHtml(item) {
   return `
     <div class="item ${overdue ? 'overdue' : ''}" data-id="${item.id}">
       <div class="item-head">
+        <span class="item-caret">▸</span>
         <div class="item-title">${esc(item.title)}</div>
         ${badge}
       </div>
-      <div class="item-meta">負責人：${esc(item.owner)}${item.target_date ? '　｜　目標完成日：' + fmtDate(item.target_date) : ''}　｜　建立於：${fmtDate(item.created_at)}</div>
-      ${item.description ? `<div class="item-desc">${esc(item.description)}</div>` : ''}
-      ${item.last_update_note ? `<div class="latest-update"><div class="lu-meta">最近更新　${fmtDateTime(item.last_update_at)}</div>${esc(item.last_update_note)}</div>` : ''}
-      ${actionHtml}
-      <span class="history-toggle" data-id="${item.id}">查看歷史紀錄 ▾</span>
-      <div class="history-list" id="hist-${item.id}"></div>
+      <div class="item-body">
+        <div class="item-meta">負責人：${esc(item.owner)}${item.target_date ? '　｜　目標完成日：' + fmtDate(item.target_date) : ''}　｜　建立於：${fmtDate(item.created_at)}</div>
+        ${item.description ? `<div class="item-desc">${esc(item.description)}</div>` : ''}
+        ${item.last_update_note ? `<div class="latest-update"><div class="lu-meta">最近更新　${fmtDateTime(item.last_update_at)}</div>${esc(item.last_update_note)}${photoThumbsHtml(item.last_update_photos)}</div>` : ''}
+        ${actionHtml}
+        <span class="history-toggle" data-id="${item.id}">查看歷史紀錄 ▾</span>
+        <div class="history-list" id="hist-${item.id}"></div>
+      </div>
     </div>`;
 }
 
@@ -196,6 +227,31 @@ function bindItemEvents() {
   listEl.querySelectorAll('.act-reject').forEach((btn) => btn.addEventListener('click', onReject));
   listEl.querySelectorAll('.act-reopen').forEach((btn) => btn.addEventListener('click', onReopen));
   listEl.querySelectorAll('.history-toggle').forEach((el) => el.addEventListener('click', onToggleHistory));
+  listEl.querySelectorAll('.item-head').forEach((el) => el.addEventListener('click', onToggleExpand));
+}
+
+// 手機板：點標題列展開/收合詳細內容（桌面版寬螢幕下 CSS 會讓 .item-body 一直顯示）
+function onToggleExpand(e) {
+  const item = e.currentTarget.closest('.item');
+  if (!item) return;
+  item.classList.toggle('expanded');
+}
+
+// 上傳照片到 Supabase Storage，回傳公開網址陣列
+async function uploadPhotos(files, itemId) {
+  const urls = [];
+  for (const file of files) {
+    const safeName = file.name.replace(/[^\w.\-]/g, '_');
+    const path = `${itemId}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}_${safeName}`;
+    const r = await fetch(`${STORAGE_BASE}/object/${STORAGE_BUCKET}/${path}`, {
+      method: 'POST',
+      headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}`, 'Content-Type': file.type || 'application/octet-stream' },
+      body: file,
+    });
+    if (!r.ok) throw new Error(`照片上傳失敗：${r.status} ${await r.text()}`);
+    urls.push(`${STORAGE_BASE}/object/public/${STORAGE_BUCKET}/${path}`);
+  }
+  return urls;
 }
 
 async function onSubmitUpdate(e) {
@@ -203,16 +259,32 @@ async function onSubmitUpdate(e) {
   const box = e.target.closest('.item');
   const note = box.querySelector('.upd-note').value.trim();
   const author = box.querySelector('.upd-author').value.trim();
+  const fileInput = box.querySelector('.upd-photos');
+  const files = fileInput && fileInput.files ? Array.from(fileInput.files) : [];
   if (!note) return toast('請填寫本週進度更新內容', true);
 
+  const btn = e.target;
+  const origLabel = btn.textContent;
   try {
+    let photoUrls = [];
+    if (files.length) {
+      btn.disabled = true;
+      btn.textContent = '上傳照片中…';
+      photoUrls = await uploadPhotos(files, id);
+    }
     await api(`todo_items?id=eq.${id}`, 'PATCH', {
       status: '待審核', last_update_at: new Date().toISOString(), last_update_note: note,
+      last_update_photos: photoUrls.length ? photoUrls : null,
     });
-    await api('todo_updates', 'POST', { todo_id: id, author: author || null, action: '更新', note });
+    await api('todo_updates', 'POST', {
+      todo_id: id, author: author || null, action: '更新', note,
+      photo_urls: photoUrls.length ? photoUrls : null,
+    });
     toast('✓ 已送出，等待主管審核');
     load();
   } catch (err) {
+    btn.disabled = false;
+    btn.textContent = origLabel;
     toast('送出失敗：' + err.message, true);
   }
 }
@@ -273,6 +345,7 @@ async function onToggleHistory(e) {
       <div class="history-row">
         <span class="h-meta">${fmtDateTime(r.created_at)}${r.author ? '　' + esc(r.author) : ''}　［${esc(r.action)}］</span>
         ${r.note ? '　' + esc(r.note) : ''}
+        ${photoThumbsHtml(r.photo_urls)}
       </div>`).join('') || '<div class="history-row">（無紀錄）</div>';
     box.classList.add('show');
     e.target.textContent = '收合歷史紀錄 ▴';

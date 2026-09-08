@@ -63,6 +63,25 @@ function showApp() {
   load();
 }
 
+// ---------- Change password ----------
+$('pwdBtn').addEventListener('click', () => $('pwdBox').classList.remove('hidden'));
+$('pwdCancelBtn').addEventListener('click', () => {
+  $('pwdBox').classList.add('hidden');
+  $('pwd-new').value = ''; $('pwd-confirm').value = '';
+});
+$('pwdSaveBtn').addEventListener('click', async () => {
+  const p1 = $('pwd-new').value, p2 = $('pwd-confirm').value;
+  if (!p1 || p1.length < 4) return toast('新密碼至少 4 個字元', true);
+  if (p1 !== p2) return toast('兩次輸入的新密碼不一致', true);
+  try {
+    await api('hospital_admin?key=eq.requests_admin_password', 'PATCH', { value: p1 });
+    toast('✓ 密碼已更新，下次登入請用新密碼');
+    $('pwdCancelBtn').click();
+  } catch (err) {
+    toast('更新失敗：' + err.message, true);
+  }
+});
+
 // ---------- List ----------
 function rowHtml(r) {
   const folders = [r.folder_shinghou ? '杏和' : null, r.folder_shingyong ? '杏永' : null].filter(Boolean).join('／') || '—';

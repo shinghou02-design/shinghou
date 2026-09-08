@@ -38,3 +38,14 @@
 - Confirm from a real browser whether the front page actually pulls live data from Supabase (this session couldn't test it due to sandbox network restrictions).
 - User needs to: (1) run `migration_it_access_requests.sql` in Supabase SQL Editor, (2) git add/commit/push these new files to `master` + `gh-pages` (this session did not attempt git push — github.com may also be network-blocked in sandbox), (3) click-test `request.html` and `requests-admin.html` live, (4) change the default admin password.
 - Two open roadmap items remain: L2 (GitHub) Integration, L3 (Obsidian) Integration — no detail yet on what these entail; ask user to define scope.
+
+## New feature — 代辦事項追蹤 (todo.html/todo.js) — 2026-09-08
+- Weekly-update todo tracker built and confirmed working live by user (login screenshot). `migration_todo.sql` run successfully.
+- 負責人 dropdown (陳啟源/黃文正/黃祖明 + free text) added to the new-item form.
+- Added to todo.html / requests-admin.html / request.js's request.html: a "🔑 變更密碼" button+form that lets the admin change the shared `hospital_admin.requests_admin_password` value directly from the browser (PATCH via Supabase REST) — same password is shared by requests-admin.html and todo.html gates.
+- Added `@media (max-width: 600px)` mobile CSS to todo.html, requests-admin.html, and request.html so none of the pages overflow on a phone.
+- Added mobile collapse/accordion UX to todo.html: each todo item now shows only its title + status badges by default on phones (`.item-head`, with a `▸` caret); tapping it toggles an `expanded` class that reveals the full detail (`.item-body`: meta, description, latest update, action box, history). Desktop view is unaffected (body always visible above the 600px breakpoint).
+- Added photo upload for weekly updates: a file input (`accept="image/*" capture="environment" multiple`) appears in the 進行中 item's update box. `todo.js` now has `uploadPhotos()` (uploads to Supabase Storage bucket `todo-photos` via REST, returns public URLs) wired into `onSubmitUpdate`, which stores the URLs on both `todo_items.last_update_photos` and `todo_updates.photo_urls`. Thumbnails render (`photoThumbsHtml()`) in both the "latest update" box and the history list, each linking to the full-size image.
+- New file `migration_todo_photos.sql` (NOT yet run by user) — creates the public `todo-photos` Storage bucket (5MB limit, image mime types only) + RLS policies for anon upload/read, and adds `last_update_photos`/`photo_urls` array columns to `todo_items`/`todo_updates`.
+- All of the above (todo.html, todo.js, requests-admin.html, requests-admin.js, request.html, migration_todo_photos.sql) were written this session but **not yet pushed to git** — pending user's next "PUSH".
+- Still open: user has not confirmed rotating the previously-exposed `sb_secret_...` key in Supabase; RLS-disabled Security Advisor findings on `hospital_meta`/`hospital_notes`/`hospital_wards` also still unaddressed (offered, no go-ahead yet).
