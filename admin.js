@@ -1,6 +1,8 @@
+// V2.0.0（建議版本）：加入 Supabase Auth 登入，只有 staff 名冊內的人員可以修改病床資料
 const { url, anonKey } = window.SUPABASE_CONFIG;
-const REST = `${url.replace(/\/$/, '')}/rest/v1`;
-const HEADERS = { apikey: anonKey, Authorization: `Bearer ${anonKey}`, 'Content-Type': 'application/json' };
+const BASE = url.replace(/\/$/, '');
+const REST = `${BASE}/rest/v1`;
+const sb = window.supabase.createClient(BASE, anonKey, { auth: { persistSession: true, autoRefreshToken: true } });
 
 const fmtPct = (n) => `${Number(n).toFixed(1)}%`;
 const $ = (id) => document.getElementById(id);
@@ -13,9 +15,14 @@ function toast(msg, isErr = false) {
 }
 
 async function api(path, method = 'GET', body = null) {
-  const opt = { method, headers: HEADERS };
-  if (body) { opt.body = JSON.stringify(body); opt.headers.Prefer = 'return=representation'; }
+  const { data } = await sb.auth.getSession();
+  const token = data.session && data.session.access_token;
+  if (!token) { showLogin('登入已過期，請重新登入'); throw new Error('未登入'); }
+  const headers = { apikey: anonKey, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+  const opt = { method, headers };
+  if (body) { opt.body = JSON.stringify(body); headers.Prefer = 'return=representation'; }
   const r = await fetch(`${REST}/${path}`, opt);
+  if (r.status === 401) { showLogin('登入已過期，請重新登入'); throw new Error('未登入'); }
   if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
   if (r.status === 204) return null;
   return r.json();
@@ -142,4 +149,44 @@ $('saveBtn').addEventListener('click', async () => {
   }
 });
 
-load();
+// ---------- 登入 / 登出 ----------
+function showLogin(msg = '') {
+  $('app').classList.add('hidden');
+  $('loginBox').classList.remove('hidden');
+  $('loginMsg').textContent = msg;
+}
+
+async function enterApp() {
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) return showLogin();
+  const rows = await api(`staff?user_id=eq.${user.id}&select=name,role`);
+  if (!rows.length) {
+    await sb.auth.signOut();
+    return showLogin('此帳號尚未開通，請聯絡系統管理員');
+  }
+  $('whoName').textContent = rows[0].name;
+  $('loginBox').classList.add('hidden');
+  $('app').classList.remove('hidden');
+  load();
+}
+
+$('loginBtn').addEventListener('click', async () => {
+  const email = $('loginEmail').value.trim();
+  const password = $('loginPassword').value;
+  if (!email || !password) return ($('loginMsg').textContent = '請輸入 Email 與密碼');
+  $('loginBtn').disabled = true;
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+  $('loginBtn').disabled = false;
+  if (error) return ($('loginMsg').textContent = '登入失敗：帳號或密碼錯誤');
+  $('loginPassword').value = '';
+  try { await enterApp(); } catch (e) { showLogin('讀取失敗：' + e.message); }
+});
+$('loginPassword').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('loginBtn').click(); });
+$('logoutBtn').addEventListener('click', async () => { await sb.auth.signOut(); showLogin('已登出'); });
+
+(async () => {
+  try {
+    const { data } = await sb.auth.getSession();
+    if (data.session) await enterApp(); else showLogin();
+  } catch (e) { showLogin('讀取失敗：' + e.message); }
+})();
