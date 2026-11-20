@@ -1,12 +1,24 @@
+// 代辦事項追蹤｜杏和醫院
+// V2.0.0（建議版本）：加入 Supabase Auth 登入、人員角色（staff / supervisor）、
+// 只有主管可結案／退回／重新開啟、操作人自動帶入登入帳號、照片改為不公開（簽章網址）
+
 const { url, anonKey } = window.SUPABASE_CONFIG;
-const REST = `${url.replace(/\/$/, '')}/rest/v1`;
+const BASE = url.replace(/\/$/, '');
+const REST = `${BASE}/rest/v1`;
 const STORAGE_BUCKET = 'todo-photos';
-const STORAGE_BASE = `${url.replace(/\/$/, '')}/storage/v1`;
-const HEADERS = { apikey: anonKey, Authorization: `Bearer ${anonKey}`, 'Content-Type': 'application/json' };
+const PUBLIC_PREFIX = `/object/public/${STORAGE_BUCKET}/`;
+const SIGNED_URL_SECONDS = 60 * 60; // 照片簽章網址有效 1 小時
+
+const sb = window.supabase.createClient(BASE, anonKey, {
+  auth: { persistSession: true, autoRefreshToken: true },
+});
 
 const $ = (id) => document.getElementById(id);
 const toastEl = $('toast'), listEl = $('list'), emptyMsg = $('emptyMsg');
 const WEEKLY_DEADLINE_WEEKDAY = 1; // 1 = 星期一（ISO: 1=Mon...7=Sun）
+
+let me = null; // { user_id, name, role }
+const isSupervisor = () => !!me && me.role === 'supervisor';
 
 function toast(msg, isErr = false) {
   toastEl.textContent = msg;
@@ -14,17 +26,29 @@ function toast(msg, isErr = false) {
   setTimeout(() => (toastEl.className = 'toast'), 2600);
 }
 
+// 所有資料庫請求都改用「登入者的 access token」，不再用 anon key 當身分
+async function authHeaders(extra = {}) {
+  const { data } = await sb.auth.getSession();
+  const token = data.session && data.session.access_token;
+  if (!token) throw new Error('登入已過期，請重新登入');
+  return { apikey: anonKey, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...extra };
+}
+
 async function api(path, method = 'GET', body = null) {
-  const opt = { method, headers: HEADERS };
-  if (body) { opt.body = JSON.stringify(body); opt.headers.Prefer = 'return=representation'; }
+  const opt = { method, headers: await authHeaders(body ? { Prefer: 'return=representation' } : {}) };
+  if (body) opt.body = JSON.stringify(body);
   const r = await fetch(`${REST}/${path}`, opt);
+  if (r.status === 401) { await showLogin('登入已過期，請重新登入'); throw new Error('未登入'); }
   if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
   if (r.status === 204) return null;
   return r.json();
 }
 
+// 同時跳脫引號，避免內容被當成 HTML 屬性執行
 function esc(s) {
-  return String(s == null ? '' : s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ));
 }
 
 function fmtDateTime(iso) {
@@ -57,8 +81,73 @@ function isOverdue(item) {
   return ref < currentWeekDeadline();
 }
 
-// 已移除登入密碼保護，直接載入
-load();
+// ---------- 登入 / 登出 ----------
+async function showLogin(msg = '') {
+  me = null;
+  $('mainView').classList.add('hidden');
+  $('loginBox').classList.remove('hidden');
+  $('loginMsg').textContent = msg;
+}
+
+async function enterApp() {
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) return showLogin();
+
+  // 讀取自己的人員資料；沒有資料代表帳號尚未開通
+  const rows = await api(`staff?user_id=eq.${user.id}&select=user_id,name,role`);
+  if (!rows.length) {
+    await sb.auth.signOut();
+    return showLogin('此帳號尚未開通，請聯絡系統管理員');
+  }
+  me = rows[0];
+
+  $('whoName').textContent = me.name;
+  $('whoRole').textContent = isSupervisor() ? '主管' : '同仁';
+  $('whoRole').classList.toggle('supervisor', isSupervisor());
+  $('loginBox').classList.add('hidden');
+  $('mainView').classList.remove('hidden');
+
+  loadOwnerList();
+  load();
+}
+
+$('loginBtn').addEventListener('click', async () => {
+  const email = $('loginEmail').value.trim();
+  const password = $('loginPassword').value;
+  if (!email || !password) return ($('loginMsg').textContent = '請輸入 Email 與密碼');
+  $('loginBtn').disabled = true;
+  $('loginMsg').textContent = '';
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+  $('loginBtn').disabled = false;
+  if (error) return ($('loginMsg').textContent = '登入失敗：帳號或密碼錯誤');
+  $('loginPassword').value = '';
+  try { await enterApp(); } catch (err) { showLogin('登入後讀取資料失敗：' + err.message); }
+});
+$('loginPassword').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('loginBtn').click(); });
+
+$('logoutBtn').addEventListener('click', async () => {
+  await sb.auth.signOut();
+  listEl.innerHTML = '';
+  showLogin('已登出');
+});
+
+// 啟動：有保存的登入狀態就直接進入，否則顯示登入畫面
+(async () => {
+  try {
+    const { data } = await sb.auth.getSession();
+    if (data.session) await enterApp(); else await showLogin();
+  } catch (err) {
+    showLogin('讀取失敗：' + err.message);
+  }
+})();
+
+// 負責人下拉選單改從 staff 名單產生
+async function loadOwnerList() {
+  try {
+    const rows = await api('staff?select=name&order=name');
+    $('ownerList').innerHTML = rows.map((r) => `<option value="${esc(r.name)}"></option>`).join('');
+  } catch (_) { /* 名單讀不到不影響主要功能 */ }
+}
 
 // ---------- New item form ----------
 $('newBtn').addEventListener('click', () => $('newForm').classList.remove('hidden'));
@@ -79,7 +168,7 @@ $('createBtn').addEventListener('click', async () => {
       title, description: desc || null, owner, target_date: target || null,
     });
     const item = rows[0];
-    await api('todo_updates', 'POST', { todo_id: item.id, author: owner, action: '新增', note: '建立代辦事項' });
+    await logUpdate(item.id, '新增', '建立代辦事項');
     toast('✓ 已新增');
     $('cancelNewBtn').click();
     load();
@@ -91,10 +180,19 @@ $('createBtn').addEventListener('click', async () => {
 $('reloadBtn').addEventListener('click', load);
 $('showClosed').addEventListener('change', load);
 
+// 歷程紀錄：操作人一律帶入登入者，不再自行輸入
+function logUpdate(todoId, action, note = null, photoUrls = null) {
+  return api('todo_updates', 'POST', {
+    todo_id: todoId, author: me.name, author_id: me.user_id, action, note,
+    photo_urls: photoUrls && photoUrls.length ? photoUrls : null,
+  });
+}
+
 // ---------- List ----------
 let currentItems = [];
 
 async function load() {
+  if (!me) return;
   try {
     const showClosed = $('showClosed').checked;
     let path = 'todo_items?select=*&order=created_at.desc';
@@ -111,6 +209,7 @@ async function load() {
     listEl.innerHTML = items.map(itemHtml).join('');
     emptyMsg.classList.toggle('hidden', items.length > 0);
     bindItemEvents();
+    resolvePhotos(listEl);
   } catch (err) {
     toast('讀取失敗：' + err.message, true);
   }
@@ -218,11 +317,54 @@ async function exportTodoXlsx() {
   }
 }
 
-function photoThumbsHtml(urls) {
-  if (!urls || !urls.length) return '';
-  return `<div class="photo-thumbs">${urls.map((u) => `<a href="${esc(u)}" target="_blank"><img src="${esc(u)}" alt="照片" /></a>`).join('')}</div>`;
+// ---------- 照片：不公開 bucket + 簽章網址 ----------
+// 舊資料存的是公開網址，新資料存的是 Storage 路徑；兩種都轉成路徑再產生簽章網址
+function toPath(u) {
+  if (!u) return '';
+  const i = u.indexOf(PUBLIC_PREFIX);
+  if (i >= 0) return decodeURIComponent(u.slice(i + PUBLIC_PREFIX.length));
+  return u.startsWith('http') ? '' : u;
 }
 
+function photoThumbsHtml(urls) {
+  if (!urls || !urls.length) return '';
+  const paths = urls.map(toPath).filter(Boolean);
+  if (!paths.length) return '';
+  return `<div class="photo-thumbs">${paths.map((p) =>
+    `<a data-path="${esc(p)}" target="_blank" rel="noopener"><img data-path="${esc(p)}" alt="照片" /></a>`).join('')}</div>`;
+}
+
+async function resolvePhotos(container) {
+  const els = container.querySelectorAll('[data-path]');
+  const paths = [...new Set([...els].map((el) => el.dataset.path))];
+  if (!paths.length) return;
+  const { data, error } = await sb.storage.from(STORAGE_BUCKET).createSignedUrls(paths, SIGNED_URL_SECONDS);
+  if (error || !data) return;
+  const map = {};
+  data.forEach((d) => { if (d.signedUrl) map[d.path] = d.signedUrl; });
+  els.forEach((el) => {
+    const signed = map[el.dataset.path];
+    if (!signed) return;
+    if (el.tagName === 'IMG') el.src = signed; else el.href = signed;
+  });
+}
+
+// 上傳照片到 Supabase Storage，回傳「路徑」陣列（不再回傳公開網址）
+async function uploadPhotos(files, itemId) {
+  const paths = [];
+  for (const file of files) {
+    const safeName = file.name.replace(/[^\w.\-]/g, '_');
+    const path = `${itemId}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}_${safeName}`;
+    const { error } = await sb.storage.from(STORAGE_BUCKET).upload(path, file, {
+      contentType: file.type || 'application/octet-stream', upsert: false,
+    });
+    if (error) throw new Error(`照片上傳失敗：${error.message}`);
+    paths.push(path);
+  }
+  return paths;
+}
+
+// ---------- 項目卡片 ----------
 function itemHtml(item) {
   const overdue = isOverdue(item);
   const badge = overdue
@@ -237,27 +379,27 @@ function itemHtml(item) {
         <input type="file" class="upd-photos" accept="image/*" capture="environment" multiple data-id="${item.id}" />
         <div class="upload-hint">可拍照或選擇圖片上傳（選填）</div>
         <div class="action-buttons">
-          <input type="text" class="upd-author" placeholder="你的姓名" style="max-width:140px; padding:7px 9px; border:1px solid #ccc; border-radius:7px; font-size:13px;" />
-          <button class="btn btn-primary btn-sm act-submit-update" data-id="${item.id}">送出本週更新</button>
+          <button class="btn btn-primary btn-sm act-submit-update" data-id="${item.id}">送出本週更新（${esc(me.name)}）</button>
         </div>
       </div>`;
   } else if (item.status === '待審核') {
-    actionHtml = `
+    actionHtml = isSupervisor()
+      ? `
       <div class="action-box">
         <textarea class="rej-note" placeholder="（退回時可填寫要求修改的原因，選填）" data-id="${item.id}"></textarea>
         <div class="action-buttons">
-          <input type="text" class="rev-author" placeholder="主管姓名" style="max-width:140px; padding:7px 9px; border:1px solid #ccc; border-radius:7px; font-size:13px;" />
           <button class="btn btn-primary btn-sm act-approve" data-id="${item.id}">✓ 通過並結案</button>
           <button class="btn btn-danger btn-sm act-reject" data-id="${item.id}">↺ 退回，需要再更新</button>
         </div>
-      </div>`;
+      </div>`
+      : `<div class="action-box"><div class="upload-hint">⏳ 已送出，等待主管審核</div></div>`;
   } else if (item.status === '已結案') {
     actionHtml = `
       <div class="action-box">
         <div class="closed-info">✓ 已於 ${fmtDateTime(item.closed_at)}${item.closed_by ? '　由 ' + esc(item.closed_by) : ''} 結案</div>
-        <div class="action-buttons" style="margin-top:8px;">
+        ${isSupervisor() ? `<div class="action-buttons" style="margin-top:8px;">
           <button class="btn btn-ghost btn-sm act-reopen" data-id="${item.id}">重新開啟</button>
-        </div>
+        </div>` : ''}
       </div>`;
   }
 
@@ -295,28 +437,11 @@ function onToggleExpand(e) {
   item.classList.toggle('expanded');
 }
 
-// 上傳照片到 Supabase Storage，回傳公開網址陣列
-async function uploadPhotos(files, itemId) {
-  const urls = [];
-  for (const file of files) {
-    const safeName = file.name.replace(/[^\w.\-]/g, '_');
-    const path = `${itemId}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}_${safeName}`;
-    const r = await fetch(`${STORAGE_BASE}/object/${STORAGE_BUCKET}/${path}`, {
-      method: 'POST',
-      headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}`, 'Content-Type': file.type || 'application/octet-stream' },
-      body: file,
-    });
-    if (!r.ok) throw new Error(`照片上傳失敗：${r.status} ${await r.text()}`);
-    urls.push(`${STORAGE_BASE}/object/public/${STORAGE_BUCKET}/${path}`);
-  }
-  return urls;
-}
-
+// ---------- 動作 ----------
 async function onSubmitUpdate(e) {
   const id = e.target.dataset.id;
   const box = e.target.closest('.item');
   const note = box.querySelector('.upd-note').value.trim();
-  const author = box.querySelector('.upd-author').value.trim();
   const fileInput = box.querySelector('.upd-photos');
   const files = fileInput && fileInput.files ? Array.from(fileInput.files) : [];
   if (!note) return toast('請填寫本週進度更新內容', true);
@@ -324,20 +449,17 @@ async function onSubmitUpdate(e) {
   const btn = e.target;
   const origLabel = btn.textContent;
   try {
-    let photoUrls = [];
+    btn.disabled = true;
+    let photoPaths = [];
     if (files.length) {
-      btn.disabled = true;
       btn.textContent = '上傳照片中…';
-      photoUrls = await uploadPhotos(files, id);
+      photoPaths = await uploadPhotos(files, id);
     }
     await api(`todo_items?id=eq.${id}`, 'PATCH', {
       status: '待審核', last_update_at: new Date().toISOString(), last_update_note: note,
-      last_update_photos: photoUrls.length ? photoUrls : null,
+      last_update_photos: photoPaths.length ? photoPaths : null,
     });
-    await api('todo_updates', 'POST', {
-      todo_id: id, author: author || null, action: '更新', note,
-      photo_urls: photoUrls.length ? photoUrls : null,
-    });
+    await logUpdate(id, '更新', note, photoPaths);
     toast('✓ 已送出，等待主管審核');
     load();
   } catch (err) {
@@ -348,14 +470,13 @@ async function onSubmitUpdate(e) {
 }
 
 async function onApprove(e) {
+  if (!isSupervisor()) return toast('只有主管可以結案', true);
   const id = e.target.dataset.id;
-  const box = e.target.closest('.item');
-  const author = box.querySelector('.rev-author').value.trim();
   try {
     await api(`todo_items?id=eq.${id}`, 'PATCH', {
-      status: '已結案', closed_at: new Date().toISOString(), closed_by: author || null,
+      status: '已結案', closed_at: new Date().toISOString(), closed_by: me.name,
     });
-    await api('todo_updates', 'POST', { todo_id: id, author: author || null, action: '通過結案', note: null });
+    await logUpdate(id, '通過結案');
     toast('✓ 已結案');
     load();
   } catch (err) {
@@ -364,13 +485,13 @@ async function onApprove(e) {
 }
 
 async function onReject(e) {
+  if (!isSupervisor()) return toast('只有主管可以退回', true);
   const id = e.target.dataset.id;
   const box = e.target.closest('.item');
   const note = box.querySelector('.rej-note').value.trim();
-  const author = box.querySelector('.rev-author').value.trim();
   try {
     await api(`todo_items?id=eq.${id}`, 'PATCH', { status: '進行中' });
-    await api('todo_updates', 'POST', { todo_id: id, author: author || null, action: '退回', note: note || null });
+    await logUpdate(id, '退回', note || null);
     toast('已退回，需要繼續追蹤');
     load();
   } catch (err) {
@@ -379,11 +500,12 @@ async function onReject(e) {
 }
 
 async function onReopen(e) {
+  if (!isSupervisor()) return toast('只有主管可以重新開啟', true);
   const id = e.target.dataset.id;
   if (!confirm('確定要重新開啟這筆已結案的事項嗎？')) return;
   try {
     await api(`todo_items?id=eq.${id}`, 'PATCH', { status: '進行中', closed_at: null, closed_by: null });
-    await api('todo_updates', 'POST', { todo_id: id, action: '重新開啟', note: null });
+    await logUpdate(id, '重新開啟');
     toast('已重新開啟');
     load();
   } catch (err) {
@@ -407,6 +529,7 @@ async function onToggleHistory(e) {
       </div>`).join('') || '<div class="history-row">（無紀錄）</div>';
     box.classList.add('show');
     e.target.textContent = '收合歷史紀錄 ▴';
+    resolvePhotos(box);
   } catch (err) {
     toast('讀取歷史失敗：' + err.message, true);
   }

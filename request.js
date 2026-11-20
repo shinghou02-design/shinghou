@@ -1,6 +1,11 @@
 const { url, anonKey } = window.SUPABASE_CONFIG;
 const REST = `${url.replace(/\/$/, '')}/rest/v1`;
-const HEADERS = { apikey: anonKey, Authorization: `Bearer ${anonKey}`, 'Content-Type': 'application/json' };
+// V2.0.0：公開表單只能「送出」；檢視已送出的申請（?id=）需由已登入的員工開啟
+const sb = window.supabase.createClient(url.replace(/\/$/, ''), anonKey, { auth: { persistSession: true, autoRefreshToken: true } });
+async function sessionToken() {
+  const { data } = await sb.auth.getSession();
+  return data.session ? data.session.access_token : null;
+}
 
 const $ = (id) => document.getElementById(id);
 const toastEl = $('toast');
@@ -12,12 +17,15 @@ function toast(msg, isErr = false) {
 }
 
 async function api(path, method = 'GET', body = null) {
-  const opt = { method, headers: HEADERS };
-  if (body) { opt.body = JSON.stringify(body); opt.headers.Prefer = 'return=representation'; }
+  const token = await sessionToken();
+  const headers = { apikey: anonKey, Authorization: `Bearer ${token || anonKey}`, 'Content-Type': 'application/json' };
+  const opt = { method, headers };
+  // 未登入者沒有讀取權限，送出時不要求回傳資料
+  if (body) { opt.body = JSON.stringify(body); headers.Prefer = 'return=minimal'; }
   const r = await fetch(`${REST}/${path}`, opt);
   if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
-  if (r.status === 204) return null;
-  return r.json();
+  const text = await r.text();
+  return text ? JSON.parse(text) : null;
 }
 
 const form = $('reqForm');
@@ -104,6 +112,10 @@ $('printFilledBtn').addEventListener('click', () => window.print());
 $('resetBtn').addEventListener('click', () => window.location.href = 'request.html');
 
 async function initViewMode(id) {
+  if (!(await sessionToken())) {
+    toast('檢視申請內容需先登入審核後台（requests-admin.html）', true);
+    return false;
+  }
   try {
     const rows = await api(`it_access_requests?id=eq.${id}&select=*`);
     if (!rows || !rows.length) return toast('找不到這筆申請', true);
