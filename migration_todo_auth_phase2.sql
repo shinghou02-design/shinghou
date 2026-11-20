@@ -1,7 +1,8 @@
 -- =====================================================================
 -- 代辦事項追蹤 V2.0.0（建議版本）— 第二階段：收回匿名權限、鎖定流程
 -- 執行時機：新版 todo.html 與 admin.html 上線，且主管與同仁「都已確認能登入、操作正常」之後
--- 範圍：代辦事項（todo_items／todo_updates／todo-photos）＋病床看板（hospital_wards／notes／meta／admin）
+-- 範圍：代辦事項（todo_items／todo_updates／todo-photos）＋病床看板（hospital_wards／notes／meta／admin）＋資源申請（it_access_requests）
+-- 前提：todo.html、admin.html、request.html、requests-admin.html 的 V2.0.0 皆已上線
 -- 影響：⚠️ 舊版網頁與未登入的人將完全無法讀寫；舊照片的公開網址失效
 --       （新版前端會自動改用簽章網址顯示舊照片）
 -- =====================================================================
@@ -107,6 +108,18 @@ end $$;
 drop policy if exists "public read admin config"   on public.hospital_admin;
 drop policy if exists "public update admin config" on public.hospital_admin;
 revoke all on public.hospital_admin from anon;
+-- （2026-11-20 已先行執行：hospital_admin 無頁面使用，提前收回）
+
+-- 7. 資源開通申請：公開表單只能送出；檢視與審核限已登入員工（request.js／requests-admin V2.0.0）
+drop policy if exists "public read requests"   on public.it_access_requests;
+drop policy if exists "public update requests" on public.it_access_requests;
+revoke select, update, delete, truncate on public.it_access_requests from anon;
+drop policy if exists "v2 staff read requests"   on public.it_access_requests;
+drop policy if exists "v2 staff update requests" on public.it_access_requests;
+create policy "v2 staff read requests"   on public.it_access_requests for select to authenticated using (public.is_staff());
+create policy "v2 staff update requests" on public.it_access_requests for update to authenticated
+  using (public.is_staff()) with check (public.is_staff());
+-- 保留 "public insert requests"：任何人仍可填寫並送出申請
 
 commit;
 
@@ -133,4 +146,7 @@ commit;
 -- alter table public.hospital_notes disable row level security;
 -- alter table public.hospital_meta  disable row level security;
 -- grant insert, update, delete on public.hospital_wards, public.hospital_notes, public.hospital_meta to anon;
+-- grant select, update on public.it_access_requests to anon;
+-- create policy "rollback anon read requests"   on public.it_access_requests for select to anon using (true);
+-- create policy "rollback anon update requests" on public.it_access_requests for update to anon using (true) with check (true);
 -- commit;
