@@ -1,8 +1,8 @@
 # Handoff & Progress Tracking
 
 ## Current Status
-- **Current Date**: 2026-09-08
-- **Last Active**: 2026-09-08
+- **Current Date**: 2026-11-20
+- **Last Active**: 2026-11-20
 - **Current Task**: System status check
 
 ## Progress Log
@@ -70,3 +70,15 @@
 - Removed from both JS files: `tryLogin()`, `showApp()` gating, the password-change handlers, the logout handler, and the unused `SESSION_KEY` constants. Each file now just calls `load()` directly at the top.
 - `migration_hospital_admin_policy.sql` and the `hospital_admin.requests_admin_password` row are no longer used by these two pages, but were left alone in the DB (harmless, unused) in case password protection is wanted again later.
 - Not yet pushed to git — pending user's next "PUSH".
+## 資安 CIA 評估與 V2.0.0 登入改版 — 2026-11-20
+- 報告：https://claude.ai/artifact/FDWezcDwAxHuzzwGNPRG6J（16 項風險：高 8、中 6、低 2）
+- 資料庫確認：Supabase 帳號 `shinghou02@gmail.com`，專案 `shinghou02`（`amhorqegfaadfbgfhwrd`）。GitHub Pages 由 `main` 部署（非 `gh-pages`）。
+- ✅ 已在正式環境完成：
+  - 13:06 執行 `migration_todo_auth_phase1.sql`（`staff` 名冊、`is_staff()`／`is_supervisor()`／`my_staff_name()`、`todo_updates.author_id`、v2 規則；只新增，舊版照常運作）
+  - 13:55 `hospital_admin` 移除 anon 讀取／修改規則並 revoke（已無頁面使用）
+  - 14:05 刪除曾外洩的 secret key `sb_secret_a3gvN…`；目前無任何 secret key，publishable key 未變動
+- 📦 待合併：PR #1（分支 `todo-v2-auth`）— `todo`、`admin`、`request`、`requests-admin` 加入 Supabase Auth 登入；supabase-js 鎖定 2.119.2；`esc()` 跳脫引號；`migration_todo_auth_phase2.sql`
+- ⏸️ 暫緩（使用者指示）：人員名單。名單到位前**不可合併 PR**，否則四個頁面無人能登入。
+- 下一步：建立帳號＋寫入 `staff`＋關閉公開註冊 → 合併 PR → 實測 → 執行 phase2 → 無痕視窗驗證。
+- 待確認：舊版 service_role 金鑰是否停用；`it-asset`、`queue-system` 是否曾使用已刪除的 secret key（若出現 401 需改用新 key）。
+- 其他副本 `shingyong02-sudo/shinghou`、`jnfakimo/shinghou` 不再開發；`shingyong02-sudo` 的 `sync-shinghou02` 分支為搬檔暫存，可刪除。
